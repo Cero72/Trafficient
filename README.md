@@ -75,7 +75,7 @@ trafficient/
 
 ## Results
 
-- Average wait time reduction: 70% 
+- Average wait time reduction: 50% 
 - Traffic flow speed increase: 34.9%
 - Improved throughput across 8+ traffic approaches
 
