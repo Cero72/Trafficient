@@ -1,6 +1,6 @@
 # Trafficient
 
-An intelligent traffic control system using Deep Q-Learning to optimize traffic signal timing. This project achieved a 42.4% reduction in average wait times and a 34.9% increase in traffic flow speed.
+An intelligent traffic control system using Deep Q-Learning to optimize traffic signal timing. This project achieved a 50% reduction in average wait times and a 34.9% increase in traffic flow speed.
 
 ## Overview
 
