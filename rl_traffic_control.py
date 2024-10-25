@@ -689,19 +689,100 @@ def plot_training_results(episode_rewards, episode_waiting_times, episode_avg_sp
     plt.savefig('training_result.png', dpi=300, bbox_inches='tight')
     plt.close()
 
+def test_saved_model(model_path, num_episodes=5):
+    """
+    Test a saved DQN model on the traffic environment
+    
+    Args:
+        model_path (str): Path to the saved model file (.pth)
+        num_episodes (int): Number of episodes to test
+    """
+    # Initialize environment
+    env = TrafficEnvironment(os.path.join(os.path.dirname(__file__), "traditional_traffic.sumo.cfg"))
+    
+    # Force CPU device for testing
+    device = torch.device('cpu')
+    
+    # Initialize agent with same parameters
+    agent = DQNAgent(
+        n_observations=42,
+        n_actions=8,
+        batch_size=64,
+        gamma=0.95,
+        eps_start=0,  # No exploration during testing
+        eps_end=0,
+        eps_decay=1,
+        target_update=10,
+        memory_size=10000,
+        learning_rate=0.001
+    )
+    
+    # Load the saved model and ensure it's on CPU
+    agent.load(model_path)
+    agent.policy_net = agent.policy_net.to(device)
+    agent.policy_net.eval()
+    
+    metrics = {
+        'waiting_times': [],
+        'speeds': [],
+        'vehicles': []
+    }
+    
+    print(f"\nTesting saved model from: {model_path}")
+    print("=" * 80)
+    
+    for episode in range(num_episodes):
+        route_file = generate_new_random_traffic()
+        state = env.reset(route_file)
+        state = state.to(device)  # Ensure state is on CPU
+        episode_reward = 0
+        
+        while True:
+            # Get action from the model (no exploration)
+            with torch.no_grad():
+                action = agent.policy_net(state.unsqueeze(0)).max(1)[1].view(1, 1)
+            
+            # Take action in environment
+            next_state, reward, done = env.step(action.item())
+            next_state = next_state.to(device)  # Ensure next_state is on CPU
+            episode_reward += reward
+            state = next_state
+            
+            if done:
+                break
+        
+        # Get episode metrics
+        waiting_time, avg_speed, avg_vehicles = env.get_performance_metrics()
+        metrics['waiting_times'].append(waiting_time)
+        metrics['speeds'].append(avg_speed)
+        metrics['vehicles'].append(avg_vehicles)
+        
+        print(f"Episode {episode + 1}/{num_episodes} | "
+              f"Reward: {episode_reward:>8.1f} | "
+              f"Wait Time: {waiting_time:>6.1f}s | "
+              f"Avg Speed: {avg_speed:>4.1f}m/s | "
+              f"Vehicles: {avg_vehicles:>3.0f}")
+    
+    # Print average metrics
+    print("\nTest Results:")
+    print("=" * 80)
+    print(f"Average Waiting Time: {sum(metrics['waiting_times'])/num_episodes:>6.1f}s")
+    print(f"Average Speed: {sum(metrics['speeds'])/num_episodes:>4.1f}m/s")
+    print(f"Average Vehicles: {sum(metrics['vehicles'])/num_episodes:>3.0f}")
+    
+    return metrics
+
 if __name__ == "__main__":
-    episodes = 100
-    trained_agent, rewards, waiting_times, avg_speeds = train(episodes=episodes)
-    plot_training_results(rewards, waiting_times, avg_speeds)
-    print("Training completed. Results plotted in 'training_results.png'")
-    print(f"Trained model saved as 'trained_dqn_agent_episodes_{episodes}.pth'")
+    # episodes = 100
+    # trained_agent, rewards, waiting_times, avg_speeds = train(episodes=episodes)
+    # plot_training_results(rewards, waiting_times, avg_speeds)
+    # print("Training completed. Results plotted in 'training_results.png'")
+    # print(f"Trained model saved as 'trained_dqn_agent_episodes_{episodes}.pth'")
 
-
-
-
-
-
-
-
+    # Path to your saved model
+    model_path = 'trained_dqn_agent_episodes_100.pth'
+    
+    # Test the saved model
+    test_metrics = test_saved_model(model_path, num_episodes=5)
 
 

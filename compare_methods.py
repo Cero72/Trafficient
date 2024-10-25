@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from rl_traffic_control import train
+from rl_traffic_control import train, test_saved_model
 from traditional_traffic_control import test_traditional_control
 
 # Add these constants at the top
@@ -33,20 +33,38 @@ def train_and_test_rl_model(num_episodes=1000):
 def format_metrics(waiting_time, speed):
     return f"Avg Waiting Time: {waiting_time:.2f} seconds, Avg Speed: {speed:.2f} km/h"
 
-def run_comparison(num_episodes=NUM_EPISODES, traffic_density='medium'):
-    """Run comparison with standardized parameters"""
+def test_saved_rl_model(model_path, num_episodes=5):
+    """Test the saved RL model and return metrics"""
+    try:
+        # Load and test the saved model
+        metrics = test_saved_model(model_path, num_episodes)
+        
+        # Get average waiting times and speeds from the metrics dictionary
+        avg_waiting_time = np.mean(metrics['waiting_times'])
+        avg_speed = np.mean(metrics['speeds'])
+        
+        # Convert speeds to km/h and cap at 50 km/h
+        avg_speed = min(avg_speed * 3.6, 50.0)
+        
+        return avg_waiting_time, avg_speed
+    except Exception as e:
+        print(f"Error during RL testing: {e}")
+        return None, None
+
+def run_comparison(model_path, num_episodes=5, traffic_density='medium'):
+    """Run comparison using saved RL model"""
     env_params = {
         'simulation_duration': SIMULATION_DURATION,
         'measurement_interval': MEASUREMENT_INTERVAL,
         'traffic_density': TRAFFIC_DENSITY[traffic_density]
     }
     
-    # Train and test RL model
-    print(f"\nTraining and testing RL model with {traffic_density} traffic density...")
-    rl_waiting_time, rl_avg_speed = train_and_test_rl_model(num_episodes=num_episodes)
+    # Test saved RL model
+    print(f"\nTesting saved RL model with {traffic_density} traffic density...")
+    rl_waiting_time, rl_avg_speed = test_saved_rl_model(model_path, num_episodes)
 
     if rl_waiting_time is not None and rl_avg_speed is not None:
-        # Test traditional control without env_params
+        # Test traditional control
         print(f"\nTesting traditional control with {traffic_density} traffic density...")
         trad_waiting_time, trad_avg_speed = test_traditional_control(num_episodes=num_episodes)
         
@@ -65,38 +83,8 @@ def run_comparison(num_episodes=NUM_EPISODES, traffic_density='medium'):
         print(f"Waiting Time: {waiting_improvement:+.2f}% ({'better' if waiting_improvement > 0 else 'worse'})")
         print(f"Average Speed: {speed_improvement:+.2f}% ({'better' if speed_improvement > 0 else 'worse'})")
     else:
-        print("RL model training/testing did not complete successfully.")
+        print("RL model testing did not complete successfully.")
 
 if __name__ == "__main__":
-    # Initialize results dictionary
-    all_results = {}
-    
-    # Test with different traffic densities
-    for density in ['low', 'medium', 'high']:
-        print(f"\nTesting with {density} traffic density")
-        print("=" * 80)
-        
-        results = run_comparison(
-            num_episodes=100,
-            traffic_density=density
-        )
-        
-        # Store results for analysis
-        all_results[density] = results
-    
-    # Print comprehensive comparison
-    print("\nComprehensive Comparison Across Traffic Densities")
-    print("=" * 80)
-    for density in ['low', 'medium', 'high']:
-        print(f"\n{density.upper()} TRAFFIC DENSITY:")
-        results = all_results[density]
-        
-        print("Metrics\t\tRL Method\tTraditional\tImprovement")
-        print("-" * 60)
-        
-        for metric in ['waiting_time', 'speed', 'queue_length', 'throughput', 'emissions']:
-            rl_value = results['rl'][metric]
-            trad_value = results['traditional'][metric]
-            improvement = ((trad_value - rl_value) / trad_value) * 100
-            
-            print(f"{metric:12s}\t{rl_value:8.2f}\t{trad_value:8.2f}\t{improvement:+8.2f}%")
+    model_path = 'trained_dqn_agent_episodes_100.pth'
+    run_comparison(model_path, num_episodes=5, traffic_density='medium')
